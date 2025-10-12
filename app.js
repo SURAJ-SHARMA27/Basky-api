@@ -11,12 +11,19 @@ const scrapeRoutes = require('./routes/scrapeRoutes');
 const zeptoRoutes = require('./routes/zeptoRoutes');
 
 const app = express();
-const PORT = 3004;
+const PORT = process.env.PORT || 3004;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '2mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.get('/health' , (req,res) =>{
+  res.status(200).json({
+    success: true,
+    message: 'Basky API is healthy'
+  });
+});
 
 
 // Mount routes
@@ -31,6 +38,7 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Basky backend (Blinkit) running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Basky backend running on port ${PORT}`);
 });
+
