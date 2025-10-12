@@ -1,24 +1,32 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
  
+# Become root to create workspace with correct ownership
+USER root
 WORKDIR /app
+ 
+# Copy manifests first
 COPY package*.json ./
  
-# Skip Puppeteer download (we’ll provide system chromium)
+# Give ownership to default non-root user (pptruser defined in base image)
+RUN chown -R pptruser:pptruser /app
+ 
+# Switch to non-root user for deterministic, safer installs
+USER pptruser
+ 
+# Prevent extra browser downloads (image already includes Chrome)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
  
+# Install production deps
 RUN npm ci --omit=dev && npm cache clean --force
  
-# Install chromium from Debian repo
-USER root
-RUN apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/* \
- && (which chromium || echo "chromium not found") \
- && ln -sf /usr/bin/chromium /usr/bin/google-chrome || true
+# Copy rest of source (still as pptruser)
+COPY --chown=pptruser:pptruser . .
  
-# Provide path for your code (if you add executablePath)
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV NODE_ENV=production
+ENV PORT=8080
+# (Optional) set executable path only if your code relies on it; otherwise Puppeteer auto-detects
+# ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
  
-COPY . .
-ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
 CMD ["npm","start"]
