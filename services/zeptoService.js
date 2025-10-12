@@ -22,7 +22,7 @@ async function initializeBrowser(forceNew = false) {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-blink-features=AutomationControlled',
-                '--disable-features=VizDisplayCompositor'
+                '--disable-features=VizDisplayCompositor','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor'
             ]
         });
         globalPage = await globalBrowser.newPage();
