@@ -3,6 +3,22 @@ const axios = require('axios');
 const qs = require('querystring');
 const puppeteer = require('puppeteer');
 
+function buildLaunchOptions(extra = {}) {
+  const baseArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-web-security',
+    '--disable-features=VizDisplayCompositor',
+    '--disable-blink-features=AutomationControlled',
+    '--single-process',
+    '--no-zygote'
+  ];
+  const args = [...new Set([...(extra.args || []), ...baseArgs])];
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+  return { headless: 'new', args, executablePath, ...extra };
+}
+
 class BlinkitService {
   constructor(opts = {}) {
     this.base = opts.base || 'https://blinkit.com';
@@ -148,8 +164,7 @@ class BlinkitService {
     if (!query) throw new Error('query required');
     const params = { query, lat: lat || '', lng: lng || '', session_token: session_token || '' };
     const url = this.buildUrl('/location/autoSuggest', params);
-    // const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor' ] });
+  const browser = await puppeteer.launch(buildLaunchOptions());
     try {
       const page = await browser.newPage();
       if (this.defaultHeaders['User-Agent']) await page.setUserAgent(this.defaultHeaders['User-Agent']);
@@ -190,8 +205,7 @@ class BlinkitService {
   async confirmLocationBrowser(place_id, title, description = '', session_token = '', opts = {}) {
     const params = { place_id, title, description, is_pin_moved: opts.is_pin_moved === true ? 'true' : 'false', session_token };
     const url = this.buildUrl('/location/info', params);
-    // const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor' ] });
+  const browser = await puppeteer.launch(buildLaunchOptions());
     try {
       const page = await browser.newPage();
       if (this.defaultHeaders['User-Agent']) await page.setUserAgent(this.defaultHeaders['User-Agent']);
@@ -243,8 +257,7 @@ class BlinkitService {
       total_entities_processed: opts.total_entities_processed || 0,
     }, opts.queryParams || {});
     const url = this.buildUrl('/v1/layout/search', params);
-    // const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor' ] });
+  const browser = await puppeteer.launch(buildLaunchOptions());
     try {
       const page = await browser.newPage();
       if (this.defaultHeaders['User-Agent']) await page.setUserAgent(this.defaultHeaders['User-Agent']);
