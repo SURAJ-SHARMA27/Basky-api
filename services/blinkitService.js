@@ -39,17 +39,34 @@ class BlinkitService {
   async autoSuggest(query, lat, lng, session_token = '', opts = {}) {
     try {
       if (!query) throw new Error('query required');
+      console.log('[Blinkit:autoSuggest] Start', { query, lat, lng });
+      
+      // Force browser path by default (can disable with FORCE_BLINKIT_BROWSER=false)
+      const forceBrowser = process.env.FORCE_BLINKIT_BROWSER !== 'false' && opts.forceBrowser !== false;
+      if (forceBrowser) {
+        console.log('[Blinkit:autoSuggest] Using browser (default)');
+        return await this.autoSuggestBrowser(query, lat, lng, session_token, opts);
+      }
+      
       const params = { query, lat: lat || '', lng: lng || '', session_token: session_token || '' };
       const url = this.buildUrl('/location/autoSuggest', params);
+      console.log('[Blinkit:autoSuggest] URL:', url);
+      
       const headers = Object.assign({}, this.defaultHeaders, opts.headers || {});
       if (opts.cookies || this.defaultCookies) headers.Cookie = opts.cookies || this.defaultCookies;
+      
+      console.log('[Blinkit:autoSuggest] Axios GET');
       const res = await axios.get(url, { headers, timeout: opts.timeout || 8000, validateStatus: null });
+      console.log('[Blinkit:autoSuggest] Response status:', res.status);
+      
       if (res.status === 403 && opts.tryBrowserFallback !== false) {
+        console.log('[Blinkit:autoSuggest] 403 detected, fallback to browser');
         const browserResult = await this.autoSuggestBrowser(query, lat, lng, session_token, opts);
         return browserResult;
       }
       return { success: res.status === 200, status: res.status, headers: res.headers, data: res.data };
     } catch (err) {
+      console.error('[Blinkit:autoSuggest] Error:', err.message);
       return { success: false, error: err.message };
     }
   }
@@ -57,18 +74,35 @@ class BlinkitService {
   async confirmLocation(place_id, title, description = '', session_token = '', opts = {}) {
     try {
       if (!place_id || !title || !session_token) throw new Error('place_id, title and session_token are required');
+      console.log('[Blinkit:confirmLocation] Start', { place_id, title });
+      
+      // Force browser path by default (can disable with FORCE_BLINKIT_BROWSER=false)
+      const forceBrowser = process.env.FORCE_BLINKIT_BROWSER !== 'false' && opts.forceBrowser !== false;
+      if (forceBrowser) {
+        console.log('[Blinkit:confirmLocation] Using browser (default)');
+        return await this.confirmLocationBrowser(place_id, title, description, session_token, opts);
+      }
+      
       const params = { place_id, title, description, is_pin_moved: opts.is_pin_moved === true ? 'true' : 'false', session_token };
       const url = this.buildUrl('/location/info', params);
+      console.log('[Blinkit:confirmLocation] URL:', url);
+      
       const headers = Object.assign({}, this.defaultHeaders, opts.headers || {});
       if (opts.cookies || this.defaultCookies) headers.Cookie = opts.cookies || this.defaultCookies;
+      
+      console.log('[Blinkit:confirmLocation] Axios GET');
       const res = await axios.get(url, { headers, timeout: opts.timeout || 8000, validateStatus: null });
+      console.log('[Blinkit:confirmLocation] Response status:', res.status);
+      
       if (res.status === 403 && opts.tryBrowserFallback !== false) {
+        console.log('[Blinkit:confirmLocation] 403 detected, fallback to browser');
         const br = await this.confirmLocationBrowser(place_id, title, description, session_token, opts);
         return br;
       }
       if (res.status !== 200) return { success: false, status: res.status, error: `HTTP ${res.status}` };
       return { success: true, status: 200, locationData: res.data };
     } catch (err) {
+      console.error('[Blinkit:confirmLocation] Error:', err.message);
       return { success: false, error: err.message };
     }
   }
@@ -76,6 +110,15 @@ class BlinkitService {
   async searchProducts(query, location_data = {}, opts = {}) {
     try {
       if (!query) throw new Error('query required');
+      console.log('[Blinkit:searchProducts] Start', { query, hasLocation: !!(location_data && location_data.coordinate) });
+      
+      // Force browser path by default (can disable with FORCE_BLINKIT_BROWSER=false)
+      const forceBrowser = process.env.FORCE_BLINKIT_BROWSER !== 'false' && opts.forceBrowser !== false;
+      if (forceBrowser) {
+        console.log('[Blinkit:searchProducts] Using browser (default)');
+        return await this.searchProductsBrowser(query, location_data, opts);
+      }
+      
       const params = Object.assign({
         offset: opts.offset || 0,
         limit: opts.limit || 24,
@@ -89,6 +132,8 @@ class BlinkitService {
         total_entities_processed: opts.total_entities_processed || 0,
       }, opts.queryParams || {});
       const url = this.buildUrl('/v1/layout/search', params);
+      console.log('[Blinkit:searchProducts] URL:', url);
+      
       const headers = Object.assign({}, this.defaultHeaders, opts.headers || {});
       if (opts.cookies || this.defaultCookies) headers.Cookie = opts.cookies || this.defaultCookies;
       if (location_data && location_data.coordinate) {
@@ -98,19 +143,28 @@ class BlinkitService {
         if (lon) headers['lon'] = String(lon);
         headers['x-user-lat'] = String(lat);
         headers['x-user-lng'] = String(lon);
+        console.log('[Blinkit:searchProducts] Location headers:', { lat, lon });
       }
+      
+      console.log('[Blinkit:searchProducts] Axios POST');
       const res = await axios.post(url, {}, { headers, timeout: opts.timeout || 10000, validateStatus: null });
+      console.log('[Blinkit:searchProducts] Response status:', res.status);
+      
       if (res.status === 403 && opts.tryBrowserFallback !== false) {
+        console.log('[Blinkit:searchProducts] 403 detected, fallback to browser');
         return await this.searchProductsBrowser(query, location_data, opts);
       }
       if (res.status !== 200) {
+        console.warn('[Blinkit:searchProducts] Non-200 status');
         return { success: false, status: res.status, error: `HTTP ${res.status}`, raw: res.data, headers: res.headers };
       }
       const products = this.parseProductsFromLayout(res.data);
+      console.log('[Blinkit:searchProducts] Products parsed:', products.length);
       return { success: true, products, raw: res.data, headers: res.headers };
     } catch (err) {
       const axiosBody = err && err.response && err.response.data ? err.response.data : null;
       const msg = err && err.message ? err.message : 'unknown error';
+      console.error('[Blinkit:searchProducts] Error:', msg);
       return { success: false, error: msg, raw: axiosBody };
     }
   }
@@ -146,43 +200,75 @@ class BlinkitService {
 
   async autoSuggestBrowser(query, lat, lng, session_token = '', opts = {}) {
     if (!query) throw new Error('query required');
+    console.log('[Blinkit:autoSuggestBrowser] Launching browser', { query });
     const params = { query, lat: lat || '', lng: lng || '', session_token: session_token || '' };
     const url = this.buildUrl('/location/autoSuggest', params);
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor' ] });
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+    
+    let browser;
     try {
+      browser = await puppeteer.launch({ 
+        headless: 'new', 
+        executablePath,
+        args: ['--no-sandbox', '--disable-setuid-sandbox','--disable-dev-shm-usage', '--disable-web-security','--disable-features=VizDisplayCompositor','--single-process','--no-zygote'] 
+      });
+      
+      console.log('[Blinkit:autoSuggestBrowser] Browser launched, creating page');
       const page = await browser.newPage();
-      if (this.defaultHeaders['User-Agent']) await page.setUserAgent(this.defaultHeaders['User-Agent']);
+      console.log('[Blinkit:autoSuggestBrowser] Page created, setting UA');
+      
+      if (this.defaultHeaders['User-Agent']) {
+        await page.setUserAgent(this.defaultHeaders['User-Agent']);
+      }
+      
+      console.log('[Blinkit:autoSuggestBrowser] Setting headers');
       const extraHeaders = Object.assign({}, this.defaultHeaders);
       const lowerHeaders = {};
       Object.keys(extraHeaders).forEach(k => { lowerHeaders[k.toLowerCase()] = String(extraHeaders[k]); });
-      try { await page.setExtraHTTPHeaders(lowerHeaders); } catch (_) {}
-      try { await page.goto(this.base + '/', { waitUntil: 'networkidle2', timeout: 10000 }); } catch (_) {}
+      try { await page.setExtraHTTPHeaders(lowerHeaders); } catch (e) { 
+        console.warn('[Blinkit:autoSuggestBrowser] Headers warning:', e.message); 
+      }
+      
+      // Set cookies before navigation (if any)
       if (opts.cookies || this.defaultCookies) {
+        console.log('[Blinkit:autoSuggestBrowser] Setting cookies');
         const cookies = (opts.cookies || this.defaultCookies).split(';').map(c => c.trim()).filter(Boolean).map(pair => {
           const idx = pair.indexOf('=');
           const name = pair.slice(0, idx);
           const value = pair.slice(idx + 1);
           return { name, value, domain: 'blinkit.com', path: '/' };
         });
-        try { await page.setCookie(...cookies); } catch (_) {}
+        try { await page.setCookie(...cookies); } catch (e) {
+          console.warn('[Blinkit:autoSuggestBrowser] Cookie warning:', e.message);
+        }
       }
+      
+      // Navigate to about:blank to establish page context without triggering frame detachment
+      console.log('[Blinkit:autoSuggestBrowser] Setting up page context');
+      await page.goto('about:blank');
+      
       const headers = Object.assign({}, this.defaultHeaders, opts.headers || {});
+      console.log('[Blinkit:autoSuggestBrowser] Executing fetch in page');
       const result = await page.evaluate(async (endpoint, headers) => {
         try {
           const res = await fetch(endpoint, { method: 'GET', headers, credentials: 'include', mode: 'cors' });
           const text = await res.text();
           let data = null;
           try { data = JSON.parse(text); } catch (e) { data = text; }
-          return { status: res.status, ok: res.ok, data };
+          return { status: res.status, ok: res.ok, data, bodySnippet: text.slice(0, 300) };
         } catch (e) {
           return { status: 0, ok: false, error: e.message };
         }
       }, url, headers);
-      return { success: result.ok, status: result.status, data: result.data, error: result.error || null };
+      console.log('[Blinkit:autoSuggestBrowser] Result status:', result.status);
+      return { success: result.ok, status: result.status, data: result.data, error: result.error || null, bodySnippet: result.bodySnippet };
     } catch (err) {
+      console.error('[Blinkit:autoSuggestBrowser] Error:', err.message);
       return { success: false, error: err.message };
     } finally {
-      try { await browser.close(); } catch (_) {}
+      if (browser) {
+        try { await browser.close(); } catch (_) {}
+      }
     }
   }
 
