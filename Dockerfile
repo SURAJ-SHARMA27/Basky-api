@@ -4,18 +4,16 @@ USER root
 WORKDIR /app
 
 COPY package*.json ./
-
 RUN chown -R pptruser:pptruser /app
+
 USER pptruser
 
-# Ensure package.json puppeteer version == 21.3.8
-# Remove skip env so required Chrome revision downloads if missing
 ENV NODE_ENV=production
 ENV PUPPETEER_CACHE_DIR=/home/pptruser/.cache/puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
+# Only install npm packages (Chrome already in base image)
 RUN npm ci --omit=dev && \
-    npx puppeteer browsers install chrome && \
-    ls -al /home/pptruser/.cache/puppeteer && \
     npm cache clean --force
 
 COPY --chown=pptruser:pptruser . .
